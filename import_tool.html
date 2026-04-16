@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <title>数据导入工具</title>
+  <style>
+    body { font-family: Arial, sans-serif; padding: 20px; max-width: 600px; margin: 0 auto; }
+    button { padding: 15px 30px; font-size: 16px; cursor: pointer; background: #0070f3; color: white; border: none; border-radius: 5px; }
+    button:disabled { background: #ccc; }
+    .log { margin-top: 20px; padding: 10px; background: #f0f0f0; border-radius: 5px; max-height: 400px; overflow-y: auto; }
+    .success { color: green; }
+    .error { color: red; }
+  </style>
+</head>
+<body>
+  <h1>云端数据导入工具</h1>
+  <p>点击下方按钮，将 exported_data.json 中的 11 条记录导入到云端。</p>
+  <button id="startBtn" onclick="startImport()">开始导入</button>
+  <div id="log" class="log"></div>
+
+  <script>
+    const API_URL = 'https://cuotiben-api.roy020218.workers.dev/api/records';
+    const LOG_FILE = 'exported_data.json'; // 需要同目录下有这个文件
+
+    function log(msg, type = '') {
+      const div = document.getElementById('log');
+      const p = document.createElement('p');
+      p.textContent = new Date().toLocaleTimeString() + ': ' + msg;
+      if (type) p.className = type;
+      div.appendChild(p);
+      div.scrollTop = div.scrollHeight;
+    }
+
+    async function startImport() {
+      const btn = document.getElementById('startBtn');
+      btn.disabled = true;
+      log('开始导入，请稍候...');
+
+      try {
+        // 读取本地 JSON 文件
+        const response = await fetch(LOG_FILE);
+        if (!response.ok) throw new Error('无法读取 exported_data.json，请确保文件在同目录下');
+        const content = await response.text();
+        const jsonStr = content.replace(/^【[^】]*】/, '');
+        const records = JSON.parse(jsonStr);
+
+        log(`找到 ${records.length} 条记录`);
+
+        let success = 0;
+        let fail = 0;
+
+        for (const record of records) {
+          try {
+            const payload = {
+              id: record.id,
+              data: JSON.stringify(record)
+            };
+
+            const res = await fetch(API_URL, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(payload)
+            });
+
+            if (res.ok) {
+              log(`✓ 导入成功: ${record.id}`, 'success');
+              success++;
+            } else {
+              const err = await res.text();
+              log(`✗ 导入失败: ${record.id} - ${err}`, 'error');
+              fail++;
+            }
+          } catch (e) {
+            log(`✗ 错误: ${record.id} - ${e.message}`, 'error');
+            fail++;
+          }
+        }
+
+        log(`\n导入完成！成功: ${success}, 失败: ${fail}`);
+      } catch (e) {
+        log('错误: ' + e.message, 'error');
+      }
+
+      btn.disabled = false;
+    }
+  </script>
+</body>
+</html>

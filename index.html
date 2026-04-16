@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>错题本</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --primary:#4A6CF7;--primary-light:#EEF1FF;
+  --math:#4A6CF7;--math-light:#EEF1FF;--math-dark:#3451D1;
+  --chinese:#E11D48;--chinese-light:#FFF1F3;--chinese-dark:#BE123C;
+  --english:#059669;--english-light:#ECFDF5;--english-dark:#047857;
+  --text-primary:#1E293B;--text-secondary:#64748B;--text-muted:#94A3B8;
+  --border:#E2E8F0;--bg:#F8FAFC;--bg-white:#FFFFFF;
+  --shadow-sm:0 1px 3px rgba(0,0,0,.06),0 1px 2px rgba(0,0,0,.04);
+  --shadow-md:0 4px 12px rgba(0,0,0,.08);
+  --shadow-lg:0 8px 32px rgba(0,0,0,.14);
+  --radius:12px;--radius-lg:20px;
+}
+body{
+  font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei',sans-serif;
+  background:var(--bg);color:var(--text-primary);min-height:100vh;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  padding:24px 16px;
+}
+
+/* 顶部标题 */
+.hero{text-align:center;margin-bottom:48px}
+.hero-icon{
+  width:80px;height:80px;background:var(--primary);border-radius:20px;
+  display:flex;align-items:center;justify-content:center;
+  font-size:40px;margin:0 auto 20px;
+  box-shadow:0 8px 24px rgba(74,108,247,.35)
+}
+.hero h1{font-size:32px;font-weight:800;color:var(--text-primary);letter-spacing:-.02em}
+.hero p{font-size:15px;color:var(--text-secondary);margin-top:8px}
+
+/* 卡片网格 */
+.subject-grid{
+  display:grid;
+  grid-template-columns:repeat(3,1fr);
+  gap:24px;
+  max-width:780px;
+  width:100%
+}
+.subject-card{
+  background:var(--bg-white);border-radius:var(--radius-lg);
+  border:2px solid var(--border);
+  padding:36px 28px;text-align:center;
+  cursor:pointer;text-decoration:none;
+  transition:all .2s ease;
+  box-shadow:var(--shadow-sm);
+  position:relative;overflow:hidden
+}
+.subject-card::before{
+  content:'';position:absolute;top:0;left:0;right:0;height:4px;
+  background:var(--card-color);
+}
+.subject-card:hover{
+  transform:translateY(-6px);
+  box-shadow:var(--shadow-lg);
+  border-color:var(--card-color)
+}
+.subject-card .card-emoji{font-size:52px;line-height:1;margin-bottom:16px;display:block}
+.subject-card .card-title{font-size:22px;font-weight:700;color:var(--text-primary);margin-bottom:6px}
+.subject-card .card-sub{font-size:13px;color:var(--text-secondary);line-height:1.5}
+.subject-card .card-badge{
+  display:inline-flex;align-items:center;gap:4px;
+  font-size:12px;font-weight:600;
+  padding:3px 10px;border-radius:20px;
+  margin-top:14px;
+  background:var(--card-bg);color:var(--card-color)
+}
+
+.card-math{--card-color:var(--math);--card-bg:var(--math-light)}
+.card-chinese{--card-color:var(--chinese);--card-bg:var(--chinese-light)}
+.card-english{--card-color:var(--english);--card-bg:var(--english-light)}
+
+/* 错题数徽章（右上角） */
+.count-badge{
+  position:absolute;top:14px;right:14px;
+  min-width:22px;height:22px;padding:0 6px;
+  background:var(--card-color);color:white;
+  border-radius:11px;font-size:12px;font-weight:700;
+  display:flex;align-items:center;justify-content:center;
+  opacity:0;transition:opacity .2s
+}
+.count-badge.visible{opacity:1}
+
+/* 底部 */
+.footer{margin-top:48px;text-align:center;font-size:12px;color:var(--text-muted)}
+
+@media(max-width:600px){
+  .hero h1{font-size:26px}
+  .subject-grid{grid-template-columns:1fr;max-width:360px}
+  .subject-card{padding:24px 20px;display:flex;align-items:center;gap:18px;text-align:left}
+  .subject-card::before{width:4px;height:100%;top:0;left:0;right:auto}
+  .subject-card .card-emoji{font-size:36px;margin-bottom:0;flex-shrink:0}
+  .subject-card .card-content{flex:1}
+  .subject-card .card-title{font-size:18px}
+}
+</style>
+</head>
+<body>
+
+<div class="hero">
+  <div class="hero-icon">📚</div>
+  <h1>我的错题本</h1>
+  <p>选择科目，开始复习</p>
+</div>
+
+<div class="subject-grid">
+  <!-- 语文 -->
+  <a class="subject-card card-chinese" href="chinese.html">
+    <span class="count-badge" id="badge-chinese">0</span>
+    <div class="card-content">
+      <span class="card-emoji">📖</span>
+      <div class="card-title">语文</div>
+      <div class="card-sub">阅读理解·作文·文言文·基础知识</div>
+      <div class="card-badge">📖 语文错题</div>
+    </div>
+  </a>
+
+  <!-- 数学 -->
+  <a class="subject-card card-math" href="math.html">
+    <span class="count-badge" id="badge-math">0</span>
+    <div class="card-content">
+      <span class="card-emoji">🔢</span>
+      <div class="card-title">数学</div>
+      <div class="card-sub">计算·几何·应用题·代数</div>
+      <div class="card-badge">🔢 数学错题</div>
+    </div>
+  </a>
+
+  <!-- 英语 -->
+  <a class="subject-card card-english" href="english.html">
+    <span class="count-badge" id="badge-english">0</span>
+    <div class="card-content">
+      <span class="card-emoji">🌏</span>
+      <div class="card-title">英语</div>
+      <div class="card-sub">时态·固定搭配·阅读·写作</div>
+      <div class="card-badge">🌏 英语错题</div>
+    </div>
+  </a>
+</div>
+
+<div class="footer">点击科目卡片进入对应错题本</div>
+
+<script>
+// 从各科 IndexedDB 读取错题数量
+const DB_CONFIGS = [
+  { id: 'badge-chinese', dbName: '错题本DB_Chinese', store: 'records' },
+  { id: 'badge-math',    dbName: '错题本DB',         store: 'records' },
+  { id: 'badge-english', dbName: '错题本DB_English', store: 'records' },
+];
+
+DB_CONFIGS.forEach(({ id, dbName, store }) => {
+  const req = indexedDB.open(dbName, 1);
+  req.onsuccess = e => {
+    const db = e.target.result;
+    if (!db.objectStoreNames.contains(store)) { db.close(); return; }
+    const tx = db.transaction(store, 'readonly');
+    const countReq = tx.objectStore(store).count();
+    countReq.onsuccess = () => {
+      const n = countReq.result;
+      if (n > 0) {
+        const el = document.getElementById(id);
+        el.textContent = n;
+        el.classList.add('visible');
+      }
+    };
+  };
+  req.onerror = () => {};
+});
+</script>
+</body>
+</html>

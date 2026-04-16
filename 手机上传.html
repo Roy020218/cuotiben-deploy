@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>手机上传 - 错题本</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei',sans-serif;
+  background:#f0f2f5;color:#1e293b;min-height:100vh;padding:16px;max-width:600px;margin:0 auto}
+.header{text-align:center;margin-bottom:20px}
+.header h1{font-size:22px;color:#4A6CF7;margin-bottom:4px}
+.header p{font-size:13px;color:#64748b}
+
+.card{background:white;border-radius:12px;padding:16px;margin-bottom:16px;
+  box-shadow:0 2px 8px rgba(0,0,0,.06)}
+.card-title{font-size:14px;font-weight:600;color:#1e293b;margin-bottom:12px}
+
+/* 模式切换 */
+.mode-tabs{display:flex;background:#f1f5f9;border-radius:10px;padding:3px;margin-bottom:16px}
+.mode-tab{flex:1;padding:10px;text-align:center;border-radius:8px;font-size:14px;font-weight:500;
+  cursor:pointer;transition:all .2s;color:#64748b;border:none;background:none}
+.mode-tab.active{background:white;color:#4A6CF7;box-shadow:0 1px 4px rgba(0,0,0,.08)}
+.mode-tab:not(.active):hover{color:#4A6CF7}
+
+.upload-zone{border:2px dashed #cbd5e1;border-radius:10px;text-align:center;
+  padding:28px 16px;cursor:pointer;transition:border-color .2s}
+.upload-zone:hover{border-color:#4A6CF7}
+.upload-zone input{display:none}
+.upload-icon{font-size:40px;margin-bottom:8px}
+.upload-zone p{font-size:14px;color:#64748b}
+.upload-zone .hint{font-size:12px;color:#94a3b8;margin-top:4px}
+
+.crop-area{position:relative;display:inline-block;max-width:100%;border-radius:8px;overflow:hidden}
+.crop-area canvas{display:block;max-width:100%}
+.crop-area canvas.overlay{position:absolute;top:0;left:0;cursor:crosshair;pointer-events:auto}
+
+.btn{padding:10px 20px;border-radius:8px;border:none;font-size:14px;cursor:pointer;
+  display:inline-flex;align-items:center;gap:6px;transition:all .2s}
+.btn-primary{background:#4A6CF7;color:white}
+.btn-primary:disabled{background:#94a3b8;cursor:not-allowed}
+.btn-ghost{background:#f1f5f9;color:#64748b}
+.btn-danger{background:#fef2f2;color:#ef4444}
+.btn-block{width:100%;justify-content:center}
+
+.btn-row{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap}
+.btn-row .btn{flex:1;min-width:120px;justify-content:center}
+
+/* 图片预览 */
+.img-preview-wrap{position:relative;display:inline-block;margin:8px 4px 0}
+.img-preview-wrap img{border-radius:8px;border:1px solid #e2e8f0;display:block;max-width:100%}
+.img-preview-wrap .remove-btn{position:absolute;top:4px;right:4px;background:rgba(0,0,0,.5);
+  color:white;border:none;border-radius:50%;width:24px;height:24px;
+  cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:12px}
+
+/* 文字模式 */
+.text-area{width:100%;min-height:120px;border:1px solid #e2e8f0;border-radius:8px;
+  padding:12px;font-size:15px;font-family:inherit;resize:vertical;
+  line-height:1.7;outline:none;transition:border-color .2s}
+.text-area:focus{border-color:#4A6CF7}
+.text-hint{font-size:12px;color:#94a3b8;margin-top:6px}
+
+/* 完成页 */
+.done-icon{font-size:48px;margin-bottom:12px;text-align:center}
+.done-title{font-size:16px;font-weight:600;text-align:center;margin-bottom:6px}
+.done-desc{font-size:13px;color:#64748b;text-align:center;margin-bottom:16px}
+
+/* Toast */
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);
+  background:#1e293b;color:white;padding:10px 20px;border-radius:8px;
+  font-size:13px;z-index:200;animation:fadeIn .2s;white-space:nowrap}
+@keyframes fadeIn{from{opacity:0;transform:translateX(-50%) translateY(8px)}}
+
+/* 已同步提示 */
+.synced-banner{background:#ECFDF5;border:1px solid #A7F3D0;border-radius:8px;
+  padding:12px;font-size:13px;color:#065F46;text-align:center;margin-bottom:12px}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>📱 错题本 · 手机上传</h1>
+  <p>拍摄图片或输入文字，快速录入错题</p>
+</div>
+
+<div class="synced-banner" id="synced-banner" style="display:none">
+  ✅ 已同步到电脑端错题本
+</div>
+
+<!-- 模式切换 -->
+<div class="card">
+  <div class="mode-tabs">
+    <button class="mode-tab active" id="tab-image" onclick="setMode('image')">📷 上传图片</button>
+    <button class="mode-tab" id="tab-text" onclick="setMode('text')">📝 上传文字</button>
+  </div>
+</div>
+
+<!-- ===== 图片模式 ===== -->
+<div id="panel-image">
+  <!-- 选择图片 -->
+  <div class="card" id="img-step-select">
+    <div class="upload-zone" onclick="document.getElementById('file-input').click()">
+      <div class="upload-icon">📷</div>
+      <p>点击拍摄 或 选择图片</p>
+      <p class="hint">支持 JPG、PNG</p>
+      <input type="file" id="file-input" accept="image/*" capture="environment"
+             onchange="onFilesSelected(event)">
+    </div>
+  </div>
+
+  <!-- 裁切 -->
+  <div class="card" id="img-step-crop" style="display:none">
+    <div class="card-title">📐 拖动框选题目区域</div>
+    <div style="text-align:right;margin-bottom:8px">
+      <button class="btn btn-ghost" style="padding:6px 12px;font-size:12px" onclick="resetCrop()">🔄 重选</button>
+    </div>
+    <div style="overflow-x:auto">
+      <div class="crop-area" id="crop-area">
+        <canvas id="canvas-base"></canvas>
+        <canvas class="overlay" id="canvas-overlay"></canvas>
+      </div>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-ghost" onclick="backToSelect()">← 上一步</button>
+      <button class="btn btn-primary" id="btn-confirm-crop" disabled onclick="doCrop()">✅ 确认裁切</button>
+    </div>
+  </div>
+
+  <!-- 预览并补充文字 -->
+  <div class="card" id="img-step-preview" style="display:none">
+    <div class="card-title">🖼️ 裁切结果（可选）</div>
+    <div class="img-preview-wrap" id="cropped-preview-wrap" style="display:none">
+      <img id="cropped-preview-img" style="max-width:100%;max-height:200px">
+      <button class="remove-btn" onclick="removeCropped()">✕</button>
+    </div>
+    <p style="font-size:12px;color:#64748b;margin-top:8px">如有需要，可在下方补充题目文字</p>
+    <textarea class="text-area" id="img-question-text" placeholder="选填：在此输入或粘贴题目文字…" rows="4"></textarea>
+    <div class="btn-row">
+      <button class="btn btn-ghost" onclick="backToCrop()">← 重新裁切</button>
+      <button class="btn btn-primary" onclick="saveImageMode()">💾 保存到错题本</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== 文字模式 ===== -->
+<div id="panel-text" style="display:none">
+  <div class="card">
+    <div class="card-title">📝 输入/粘贴题目内容</div>
+    <textarea class="text-area" id="text-question" placeholder="在此输入或粘贴题目文字…&#10;可以从微信、作业帮、小猿搜题等地方复制粘贴"
+              rows="6"></textarea>
+    <p class="text-hint">💡 直接粘贴文字比 OCR 更快更准确</p>
+    <div style="margin-top:12px">
+      <label style="font-size:13px;color:#64748b;margin-bottom:6px;display:block">题目图片（选填）</label>
+      <div class="upload-zone" style="padding:16px" onclick="document.getElementById('text-file-input').click()">
+        <div style="font-size:24px;margin-bottom:4px">📷</div>
+        <p style="font-size:13px">点击添加图片（可选）</p>
+        <input type="file" id="text-file-input" accept="image/*" capture="environment"
+               onchange="onTextFileSelected(event)" style="display:none">
+      </div>
+      <div id="text-img-preview" style="margin-top:8px"></div>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-primary btn-block" style="flex:none" onclick="saveTextMode()">💾 保存到错题本</button>
+    </div>
+  </div>
+</div>
+
+<!-- 完成 -->
+<div class="card" id="step-done" style="display:none">
+  <div class="done-icon">🎉</div>
+  <div class="done-title">已保存！</div>
+  <div class="done-desc">打开电脑端错题本刷新页面即可查看</div>
+  <button class="btn btn-primary btn-block" onclick="startOver()">继续添加</button>
+</div>
+
+<div id="toast" style="display:none" class="toast"></div>
+
+<script>
+// ==================== 状态 ====================
+const API_BASE = ''; // 同源，API 相对路径
+let currentMode = 'image';
+let baseImg = null;
+let baseDataUrl = null;
+let croppedDataUrl = null;
+let sel = {x:0,y:0,w:0,h:0};
+let isDragging = false;
+let cropCtx = null;
+let textModeImage = null; // 文字模式下的附加图片
+
+// ==================== API ====================
+async function apiPost(endpoint, data){
+  const r = await fetch(endpoint, {
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify(data)
+  });
+  return r.json();
+}
+
+// ==================== 模式切换 ====================
+function setMode(mode){
+  currentMode = mode;
+  document.getElementById('tab-image').classList.toggle('active', mode==='image');
+  document.getElementById('tab-text').classList.toggle('active', mode==='text');
+  document.getElementById('panel-image').style.display = mode==='image'?'block':'none';
+  document.getElementById('panel-text').style.display = mode==='text'?'block':'none';
+}
+
+// ==================== 图片模式：文件选择 ====================
+function onFilesSelected(e){
+  const file = e.target.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    baseDataUrl = ev.target.result;
+    showCrop();
+  };
+  reader.readAsDataURL(file);
+  e.target.value = '';
+}
+
+function showCrop(){
+  document.getElementById('img-step-select').style.display='none';
+  document.getElementById('img-step-crop').style.display='block';
+  document.getElementById('img-step-preview').style.display='none';
+  renderCrop();
+}
+
+function backToSelect(){
+  document.getElementById('img-step-select').style.display='block';
+  document.getElementById('img-step-crop').style.display='none';
+  sel={x:0,y:0,w:0,h:0};
+}
+
+// ==================== 裁切 ====================
+function renderCrop(){
+  baseImg = new Image();
+  baseImg.onload = ()=>{
+    const cv = document.getElementById('canvas-base');
+    const ov = document.getElementById('canvas-overlay');
+    const maxW = Math.min(baseImg.width, 400);
+    const scale = maxW / baseImg.width;
+    const h = Math.round(baseImg.height * scale);
+    cv.width = ov.width = maxW;
+    cv.height = ov.height = h;
+    const ctx = cv.getContext('2d');
+    ctx.drawImage(baseImg, 0, 0, maxW, h);
+    cropCtx = ov.getContext('2d');
+    ov.style.width = maxW + 'px';
+    ov.style.height = h + 'px';
+    ov.style.position = 'absolute';
+    ov.style.top = '0';
+    ov.style.left = '0';
+    sel = {x:0,y:0,w:0,h:0};
+    document.getElementById('btn-confirm-crop').disabled = true;
+    initCropMouse();
+  };
+  baseImg.src = baseDataUrl;
+}
+
+function initCropMouse(){
+  const ov = document.getElementById('canvas-overlay');
+  const area = document.getElementById('crop-area');
+  let sx=0, sy=0;
+  const getPos = e => {
+    const r = area.getBoundingClientRect();
+    const ex = e.touches ? e.touches[0].clientX : e.clientX;
+    const ey = e.touches ? e.touches[0].clientY : e.clientY;
+    return {
+      x: Math.max(0, Math.min(ov.width, ex - r.left)),
+      y: Math.max(0, Math.min(ov.height, ey - r.top))
+    };
+  };
+  const redraw = () => {
+    cropCtx.clearRect(0,0,ov.width,ov.height);
+    if(sel.w<=0||sel.h<=0) return;
+    cropCtx.fillStyle = 'rgba(0,0,0,0.45)';
+    cropCtx.fillRect(0,0,ov.width,ov.height);
+    cropCtx.clearRect(sel.x,sel.y,sel.w,sel.h);
+    cropCtx.strokeStyle = '#ffffff';
+    cropCtx.lineWidth = 2;
+    cropCtx.setLineDash([5,3]);
+    cropCtx.strokeRect(sel.x,sel.y,sel.w,sel.h);
+    cropCtx.setLineDash([]);
+  };
+  ov.onmousedown = ov.ontouchstart = e => {
+    e.preventDefault();
+    isDragging = true;
+    const p = getPos(e);
+    sx=p.x; sy=p.y; sel={x:sx,y:sy,w:0,h:0};
+  };
+  ov.onmousemove = ov.ontouchmove = e => {
+    if(!isDragging) return;
+    e.preventDefault();
+    const p = getPos(e);
+    sel={x:Math.min(sx,p.x),y:Math.min(sy,p.y),w:Math.abs(p.x-sx),h:Math.abs(p.y-sy)};
+    redraw();
+  };
+  const endDrag = () => {
+    if(!isDragging) return;
+    isDragging = false;
+    redraw();
+    document.getElementById('btn-confirm-crop').disabled = (sel.w<10||sel.h<10);
+  };
+  ov.onmouseup = ov.ontouchend = endDrag;
+  ov.onmouseleave = endDrag;
+}
+
+function resetCrop(){
+  sel={x:0,y:0,h:0,w:0};
+  cropCtx && cropCtx.clearRect(0,0,document.getElementById('canvas-overlay').width,
+    document.getElementById('canvas-overlay').height);
+  document.getElementById('btn-confirm-crop').disabled = true;
+}
+
+function doCrop(){
+  if(sel.w<10||sel.h<10) return;
+  const scaleX = baseImg.width / document.getElementById('canvas-base').width;
+  const scaleY = baseImg.height / document.getElementById('canvas-base').height;
+  const ox = Math.round(sel.x * scaleX);
+  const oy = Math.round(sel.y * scaleY);
+  const ow = Math.round(sel.w * scaleX);
+  const oh = Math.round(sel.h * scaleY);
+  const tmpCv = document.createElement('canvas');
+  tmpCv.width = ow; tmpCv.height = oh;
+  tmpCv.getContext('2d').drawImage(baseImg, ox, oy, ow, oh, 0, 0, ow, oh);
+  croppedDataUrl = tmpCv.toDataURL('image/png');
+  showPreview();
+}
+
+function showPreview(){
+  document.getElementById('img-step-crop').style.display='none';
+  document.getElementById('img-step-preview').style.display='block';
+  if(croppedDataUrl){
+    document.getElementById('cropped-preview-wrap').style.display='inline-block';
+    document.getElementById('cropped-preview-img').src = croppedDataUrl;
+  } else {
+    document.getElementById('cropped-preview-wrap').style.display='none';
+  }
+  document.getElementById('img-question-text').value = '';
+}
+
+function removeCropped(){
+  croppedDataUrl = null;
+  document.getElementById('cropped-preview-wrap').style.display='none';
+}
+
+function backToCrop(){
+  document.getElementById('img-step-preview').style.display='none';
+  document.getElementById('img-step-crop').style.display='block';
+}
+
+function saveImageMode(){
+  const questionText = document.getElementById('img-question-text').value.trim();
+  const entry = {
+    id: Date.now().toString(36) + Math.random().toString(36).slice(2,6),
+    uploadType: 'image',
+    date: new Date().toISOString().split('T')[0],
+    question: questionText,
+    images: croppedDataUrl ? [croppedDataUrl] : [],
+    thinkingImages: [],
+    thinking:'', wrong:'', correct:'', note:'', type:'',
+    reason:'', grade:'', kpGrade:'', kpUnit:'', kpLeaf:'',
+    reviewed:false,
+    updatedAt: new Date().toISOString()
+  };
+  saveEntry(entry);
+}
+
+// ==================== 文字模式 ====================
+function onTextFileSelected(e){
+  const file = e.target.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    textModeImage = ev.target.result;
+    renderTextImgPreview();
+  };
+  reader.readAsDataURL(file);
+  e.target.value = '';
+}
+
+function renderTextImgPreview(){
+  const container = document.getElementById('text-img-preview');
+  if(!textModeImage){
+    container.innerHTML = '';
+    return;
+  }
+  container.innerHTML = `
+    <div class="img-preview-wrap">
+      <img src="${textModeImage}" style="max-width:100%;max-height:150px;border-radius:8px;border:1px solid #e2e8f0">
+      <button class="remove-btn" onclick="removeTextImg()">✕</button>
+    </div>`;
+}
+
+function removeTextImg(){
+  textModeImage = null;
+  renderTextImgPreview();
+}
+
+function saveTextMode(){
+  const questionText = document.getElementById('text-question').value.trim();
+  if(!questionText){
+    showToast('请输入题目内容'); return;
+  }
+  const entry = {
+    id: Date.now().toString(36) + Math.random().toString(36).slice(2,6),
+    uploadType: 'text',
+    date: new Date().toISOString().split('T')[0],
+    question: questionText,
+    images: textModeImage ? [textModeImage] : [],
+    thinkingImages: [],
+    thinking:'', wrong:'', correct:'', note:'', type:'',
+    reason:'', grade:'', kpGrade:'', kpUnit:'', kpLeaf:'',
+    reviewed:false,
+    updatedAt: new Date().toISOString()
+  };
+  saveEntry(entry);
+}
+
+// ==================== 保存 ====================
+async function saveEntry(entry){
+  try{
+    await apiPost('/api/upload', entry);
+  } catch(err){
+    // 网络失败时提示
+    showToast('网络错误，上传失败，请检查连接');
+    return;
+  }
+  showDone();
+}
+
+function showDone(){
+  document.getElementById('step-done').style.display='block';
+  document.getElementById('panel-image').style.display='none';
+  document.getElementById('panel-text').style.display='none';
+}
+
+function startOver(){
+  sel={x:0,y:0,w:0,h:0};
+  baseImg=null; baseDataUrl=null; croppedDataUrl=null;
+  textModeImage=null;
+  document.getElementById('step-done').style.display='none';
+  setMode('image');
+}
+
+// ==================== Toast ====================
+function showToast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.style.display='block';
+  setTimeout(()=>t.style.display='none', 2000);
+}
+</script>
+</body>
+</html>
