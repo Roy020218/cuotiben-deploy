@@ -908,7 +908,7 @@ function isFileProtocol() {
 }
 
 // 统一的 fetch 包装，带超时和友好错误
-async function cloudFetch(url, options = {}, timeoutMs = 10000) {
+async function cloudFetch(url, options = {}, timeoutMs = 20000) {
   if (isFileProtocol()) {
     throw new Error('本地文件模式不支持云同步，请通过 https://cuotiben.pages.dev 访问');
   }
@@ -1177,11 +1177,12 @@ async function loadAll() {
   // 同步策略：优先使用本地数据，合并云端新数据（增量同步）
   if (records.length > 0) {
     // 本地有数据，增量拉取云端新增记录
-    const since = getLastCloudSync();
-    console.log(`[同步] 增量模式，since=${new Date(since).toLocaleString()}，本地${records.length}条`);
-    const cloudRecords = await cloudLoadAll({ since });
-    console.log(`[同步] 云端返回 ${cloudRecords.length} 条（自 ${since} 后更新）`);
-    if (cloudRecords.length > 0) {
+    try {
+      const since = getLastCloudSync();
+      console.log(`[同步] 增量模式，since=${new Date(since).toLocaleString()}，本地${records.length}条`);
+      const cloudRecords = await cloudLoadAll({ since });
+      console.log(`[同步] 云端返回 ${cloudRecords.length} 条（自 ${since} 后更新）`);
+      if (cloudRecords.length > 0) {
       const localMap = new Map(records.map(r => [r.id, r]));
       const cloudMap = new Map(cloudRecords.map(r => [r.id, r]));
       let newCount = 0, updatedCount = 0;
@@ -1210,11 +1211,16 @@ async function loadAll() {
       }
     }
     setLastCloudSync(Date.now()); // 更新同步时间戳
+    } catch(syncErr) {
+      console.warn('[同步] 增量同步失败，使用本地数据:', syncErr.message);
+      setLastCloudSync(Date.now());
+    }
   } else {
     // IndexedDB 为空，全量拉取云端
     console.log('[同步] 首次加载或本地为空，执行全量同步');
-    const cloudRecords = await cloudLoadAll();
-    console.log(`[同步] 全量返回 ${cloudRecords.length} 条`);
+    try {
+      const cloudRecords = await cloudLoadAll();
+      console.log(`[同步] 全量返回 ${cloudRecords.length} 条`);
     if (cloudRecords.length > 0) {
       await bulkSaveToDB(cloudRecords);
       records = await loadRecordsFromDB();
@@ -1237,6 +1243,9 @@ async function loadAll() {
       }
     }
     setLastCloudSync(Date.now()); // 全量同步后记录时间戳
+    } catch(fullSyncErr) {
+      console.warn('[同步] 全量同步失败:', fullSyncErr.message);
+    }
   }
 
   // 其他配置仍然使用 localStorage（小数据不受影响）
@@ -3287,6 +3296,13 @@ loadAll().then(() => {
   renderList(); // 渲染列表
   initReviewPage(); // 初始化复习页
   updateStats(); // 更新统计
+}).catch(err => {
+  console.error('错题本初始化出错:', err);
+  const loadingEl = document.getElementById('loading-overlay');
+  if (loadingEl) loadingEl.style.display = 'none';
+  // 即使出错也尽量渲染已有数据
+  if(records && records.length > 0) { renderList(); initReviewPage(); updateStats(); }
+  toast('初始化异常：' + err.message + '（已使用本地数据）', 'warning');
 });
 
 // ==================== 剪贴板粘贴（微信截图直接 Ctrl+V） ====================
